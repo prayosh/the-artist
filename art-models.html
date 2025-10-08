@@ -39,14 +39,17 @@
 </head>
 <body class="bg-gray-900 min-h-screen p-4 sm:p-8 flex flex-col items-center">
 
+    <!-- The "Back to List" button is now FIXED to the bottom left corner -->
+    <button id="back-button" class="hidden fixed bottom-4 left-4 sm:bottom-8 sm:left-8 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200 shadow-2xl z-50" onclick="window.location.search = '';">
+        &larr; Back to List
+    </button>
+
     <!-- Header (Always visible) -->
     <header class="w-full max-w-7xl mb-6">
         <h1 class="text-3xl sm:text-4xl font-extrabold text-white text-center">
             <span class="text-indigo-400">PDF Gallery</span> Navigator
         </h1>
-        <button id="back-button" class="hidden absolute top-4 left-4 sm:top-8 sm:left-8 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200 shadow-md z-10" onclick="window.location.search = '';">
-            &larr; Back to List
-        </button>
+        <!-- Removed button from here -->
         <p id="current-pdf-display" class="text-gray-400 text-center mt-2"></p>
     </header>
 
@@ -67,13 +70,7 @@
 
             <div id="no-pdfs-message" class="hidden p-6 bg-yellow-900 rounded-lg text-yellow-300">
                 <p class="font-bold mb-2">No PDFs Found.</p>
-                <p>To enable dynamic loading, you must create a file named <code class="bg-yellow-800 text-sm p-1 rounded">pdf/art-models/manifest.json</code>.</p>
-                <p class="mt-2 text-sm">This file should contain a JSON array of your PDF filenames, like this:</p>
-                <pre class="bg-yellow-800 p-2 mt-2 rounded-md overflow-x-auto text-xs"><code>[
-  "Art_Models_1.pdf",
-  "Art_Models_2.pdf",
-  "Sample_Architecture_Guide.pdf"
-]</code></pre>
+                <p>Ensure that a file named <code class="bg-yellow-800 text-sm p-1 rounded">pdf/art-models/manifest.json</code> exists and is correctly structured.</p>
             </div>
 
             <div id="pdf-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 hidden">
@@ -343,7 +340,7 @@
                 console.error('Error loading or rendering PDF:', error);
                 
                 const pathError = error.message.includes("HTTP error! status") 
-                    ? `Network error: ${error.message}. Check that the path "${pdfPath}" is correct.`
+                    ? `Network error: ${error.message}. Check that the path "${pdfPath}" is correct and the file exists.`
                     : `Processing error: ${error.message}`;
 
                 detailedError.textContent = pathError;
