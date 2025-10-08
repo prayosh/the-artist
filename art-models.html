@@ -7,11 +7,10 @@
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom font and scrollbar for artistic dark theme */
+        /* Custom font and scrollbar for artistic dark theme (Purple-Blue) */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         
         :root {
-            /* Changed theme from yellow/orange to blue-purple */
             --primary-color: #a7a5ff; /* Soft vibrant blue-purple */ 
             --background-color: #1a1a2e; /* Deep purple-black */
             --card-color: #2c2c4b; /* Slightly lighter card background */
@@ -37,7 +36,6 @@
             background: #4e4e7e;
             border-radius: 4px;
         }
-        /* Updated hover color to match new theme */
         ::-webkit-scrollbar-thumb:hover {
             background: #9090f0;
         }
@@ -77,19 +75,61 @@
     <!-- Large Image Preview Modal -->
     <div id="large-image-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
         <div class="relative p-2 w-full max-w-full h-full flex items-center justify-center">
+            <!-- Close button for the modal -->
             <button id="close-modal-btn" class="absolute top-4 right-4 text-white text-3xl font-bold p-2 rounded-full bg-red-600 hover:bg-red-700 transition duration-300 z-50">
                 &times;
             </button>
+            <!-- Image tag to display the large preview. Max-w-full ensures width is equal to screen width constraint. -->
             <img id="modal-image" src="" alt="Large Preview" class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-2xl transition duration-500 ease-in-out">
         </div>
     </div>
 
     <script>
         // --- Mock Data Simulation ---
-        // Since we cannot read actual files, we use mock data to simulate PDF file paths and pages.
-        // NOTE: MOCK_PDF_DATA has been set to an empty array [] to demonstrate the "no PDFs available" message, 
-        // which correctly removes the list header as requested.
-        const MOCK_PDF_DATA = []; 
+        // RESTORED mock data to demonstrate functionality.
+        const MOCK_PDF_DATA = [
+            {
+                id: 'art-history-vol1',
+                path: 'pdf/art-models/',
+                name: 'Renaissance Figure Studies Vol. 1',
+                images: [
+                    'https://placehold.co/400x550/2c2c4b/a7a5ff?text=RFS+Page+1',
+                    'https://placehold.co/550x400/2c2c4b/a7a5ff?text=RFS+Page+2',
+                    'https://placehold.co/400x600/2c2c4b/a7a5ff?text=RFS+Page+3',
+                    'https://placehold.co/600x400/2c2c4b/a7a5ff?text=RFS+Page+4',
+                    'https://placehold.co/400x500/2c2c4b/a7a5ff?text=RFS+Page+5',
+                    'https://placehold.co/500x400/2c2c4b/a7a5ff?text=RFS+Page+6',
+                ]
+            },
+            {
+                id: 'modern-sculpture',
+                path: 'pdf/art-models/',
+                name: 'Modern Sculpture Poses 1920-1960',
+                images: [
+                    'https://placehold.co/450x450/2c2c4b/a7a5ff?text=MSP+Page+1',
+                    'https://placehold.co/400x650/2c2c4b/a7a5ff?text=MSP+Page+2',
+                    'https://placehold.co/650x400/2c2c4b/a7a5ff?text=MSP+Page+3',
+                    'https://placehold.co/500x600/2c2c4b/a7a5ff?text=MSP+Page+4',
+                ]
+            },
+            {
+                id: 'academic-drawing',
+                path: 'pdf/art-models/',
+                name: 'Academic Drawing Reference Guide',
+                images: [
+                    'https://placehold.co/500x500/2c2c4b/a7a5ff?text=ADRG+Page+1',
+                    'https://placehold.co/400x700/2c2c4b/a7a5ff?text=ADRG+Page+2',
+                    'https://placehold.co/700x400/2c2c4b/a7a5ff?text=ADRG+Page+3',
+                    'https://placehold.co/550x450/2c2c4b/a7a5ff?text=ADRG+Page+4',
+                    'https://placehold.co/400x620/2c2c4b/a7a5ff?text=ADRG+Page+5',
+                    'https://placehold.co/620x400/2c2c4b/a7a5ff?text=ADRG+Page+6',
+                    'https://placehold.co/400x580/2c2c4b/a7a5ff?text=ADRG+Page+7',
+                    'https://placehold.co/580x400/2c2c4b/a7a5ff?text=ADRG+Page+8',
+                    'https://placehold.co/400x640/2c2c4b/a7a5ff?text=ADRG+Page+9',
+                    'https://placehold.co/640x400/2c2c4b/a7a5ff?text=ADRG+Page+10',
+                ]
+            },
+        ];
 
         // --- Application State ---
         let currentView = 'list'; // 'list' or 'detail'
@@ -134,8 +174,7 @@
             // Default path for display if no PDFs are present
             const pdfPath = MOCK_PDF_DATA.length > 0 ? MOCK_PDF_DATA[0].path : 'pdf/art-models/';
             
-            // Check if MOCK_PDF_DATA is empty and display a message, then return early
-            // This ensures the header is NOT displayed when no PDFs are available.
+            // Handle case where MOCK_PDF_DATA is empty (no header displayed)
             if (MOCK_PDF_DATA.length === 0) {
                 contentArea.innerHTML = `
                     <div class="p-12 text-center rounded-xl shadow-lg mt-10" style="background-color: var(--card-color); border: 2px solid var(--primary-color);">
@@ -150,30 +189,36 @@
                 return;
             }
 
-            // If PDFs ARE available, render the header and the list grid
+            // If PDFs ARE available, render the header and the list grid (line by line)
             contentArea.innerHTML = `
                 <h2 class="text-2xl font-semibold mb-6 text-white border-b border-gray-600 pb-2">Available PDF Documents (${pdfPath})</h2>
-                <div id="pdf-list-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Layout is now single column (line by line) for the PDF list -->
+                <div id="pdf-list-grid" class="grid grid-cols-1 gap-6">
                     ${MOCK_PDF_DATA.map(pdf => `
                         <div data-id="${pdf.id}" 
-                             class="pdf-card thumbnail-card bg-card-color rounded-xl shadow-lg hover:shadow-2xl transition duration-300 ease-in-out p-4 flex flex-col items-center border border-transparent hover:border-primary-color"
+                             class="pdf-card thumbnail-card bg-card-color rounded-xl shadow-lg hover:shadow-2xl transition duration-300 ease-in-out p-4 flex items-center justify-between border border-transparent hover:border-primary-color"
                              style="background-color: var(--card-color);">
                             
-                            <h3 class="text-lg font-bold mb-3 text-center" style="color: var(--primary-color);">
-                                ${pdf.name}
-                            </h3>
-                            
-                            <div class="w-full h-64 overflow-hidden rounded-lg mb-3">
+                            <!-- PDF Info (Name and Page Count) -->
+                            <div class="flex-grow">
+                                <h3 class="text-xl font-bold mb-1" style="color: var(--primary-color);">
+                                    ${pdf.name}
+                                </h3>
+                                <p class="text-sm text-gray-400">Total Pages: ${pdf.images.length}</p>
+                                <button class="view-btn mt-3 px-4 py-1 rounded-lg font-semibold text-white transition duration-300 transform hover:scale-[1.05]"
+                                    style="background-color: var(--primary-color);">
+                                    View Thumbnails
+                                </button>
+                            </div>
+
+                            <!-- First Page Preview (Small display) -->
+                            <div class="w-20 h-28 overflow-hidden rounded-lg ml-6 flex-shrink-0">
                                 <img src="${pdf.images[0]}" alt="First Page of ${pdf.name}" 
                                      class="w-full h-full object-contain" 
-                                     onerror="this.onerror=null; this.src='https://placehold.co/400x550/374151/e5e7eb?text=PDF+Error';"
+                                     onerror="this.onerror=null; this.src='https://placehold.co/400x550/374151/e5e7eb?text=PDF';"
                                 >
                             </div>
-                            <p class="text-sm text-gray-400">Total Pages: ${pdf.images.length}</p>
-                            <button class="view-btn mt-4 w-full py-2 rounded-lg font-semibold text-white transition duration-300 transform hover:scale-[1.02]"
-                                style="background-color: var(--primary-color);">
-                                View Thumbnails
-                            </button>
+
                         </div>
                     `).join('')}
                 </div>
@@ -182,6 +227,7 @@
             // Attach event listeners for PDF cards
             contentArea.querySelectorAll('.pdf-card').forEach(card => {
                 const pdfId = card.getAttribute('data-id');
+                // The click target is the button for clarity in the list view
                 card.querySelector('.view-btn').addEventListener('click', () => {
                     navigateToDetail(pdfId);
                 });
@@ -210,7 +256,7 @@
                 </nav>
             `;
 
-            // Thumbnail Grid
+            // Thumbnail Grid (2 columns as requested)
             html += `
                 <div id="thumbnail-grid" class="grid grid-cols-2 gap-4 sm:gap-6">
                     ${shuffledImages.map((imgSrc, index) => `
@@ -231,7 +277,7 @@
                     <button id="randomize-btn" class="flex items-center px-4 py-2 rounded-full font-bold text-lg text-white shadow-xl transition duration-300 transform hover:scale-105"
                         style="background-color: var(--primary-color);">
                         <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.34 19M7 19h1.582m4.356 2A8.001 8.001 0 0020.356 4M6 6h.01"></path></svg>
-                        Randomize Order
+                        Shuffle Pages
                     </button>
                 </div>
             `;
@@ -262,6 +308,7 @@
 
         /**
          * Switches the view to the PDF detail (thumbnail) page.
+         * Note: This simulates opening a new page within a single-file application.
          * @param {string} pdfId The ID of the PDF to display.
          */
         function navigateToDetail(pdfId) {
@@ -293,7 +340,7 @@
          */
         function showLargeImage(imgSrc) {
             modalImage.src = imgSrc;
-            // The image should take up the device width visually within the max-width/max-height constraints
+            // Max-w-full ensures the image container takes the full device width, as requested.
             modal.classList.remove('hidden');
         }
 
