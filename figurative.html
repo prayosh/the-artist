@@ -244,7 +244,8 @@
                 };
                 
                 thumbnailContainer.appendChild(image);
-                container.appendChild(container); // Corrected this line to append container
+                container.appendChild(thumbnailContainer); // Corrected this line to append thumbnailContainer
+                galleryElement.appendChild(container); // Append the fully constructed container to the gallery
             });
         }
         
@@ -390,6 +391,15 @@
             <h2 class="text-2xl font-semibold text-indigo-400">Gallery Tools</h2>
             <button onclick="toggleMenu()" class="p-2 text-white hover:text-indigo-400 transition focus-ring">&times;</button>
         </div>
+
+        <!-- NEW: Go to Home Button (Updated color classes) -->
+        <a href="https://prayosh.github.io/the-artist/home.html" target="_self" 
+            class="mb-6 w-full p-3 bg-indigo-600 hover:bg-indigo-500 rounded-md text-white font-medium transition flex items-center justify-center space-x-2 shadow-lg focus-ring">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.955-8.955c.427-.427 1.125-.427 1.552 0L21.75 12M4.125 10.875v7.875c0 1.242 1.008 2.25 2.25 2.25h11.25c1.242 0 2.25-1.008 2.25-2.25v-7.875m-6.75-2.25h-4.5m4.5 0v2.25m-4.5-2.25v2.25" />
+            </svg>
+            <span>Go to Home</span>
+        </a>
 
         <!-- Add Image Section -->
         <section class="mb-8 p-4 bg-gray-800 rounded-lg shadow-inner">
