@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artistic Image Gallery</title>
+    <!-- Load Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* Apply Inter font and set base dark background */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117; /* Darkest background */
+            color: #c9d1d9; /* Light gray text */
+            transition: background-color 0.3s ease;
+        }
+
+        /* Custom scrollbar for better dark theme aesthetic */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #30363d;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background-color: #0d1117;
+        }
+
+        /* Menu Drawer Animation */
+        #menu-drawer {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateX(-100%);
+        }
+        #menu-drawer.open {
+            transform: translateX(0);
+        }
+
+        /* Utility for aspect ratio and image fitting */
+        .thumbnail-container {
+            width: 100%;
+            padding-top: 100%; /* 1:1 Aspect Ratio */
+            position: relative;
+        }
+        .thumbnail-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .thumbnail-image:hover {
+            transform: scale(1.03);
+        }
+
+        /* Large Preview Modal */
+        #large-preview-modal {
+            background-color: rgba(0, 0, 0, 0.95);
+        }
+
+        /* Custom focus styles for accessibility */
+        .focus-ring {
+            box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.6);
+        }
+    </style>
+</head>
+<body>
+
+    <script>
+        // --- Global State and Constants ---
+        const STORAGE_KEY = 'ART_GALLERY_IMAGE_LINKS';
+        let allImages = []; // Stores all fetched image URLs (strings)
+        let displayedImages = []; // Stores the currently shuffled order
+
+        // --- DOM Elements (Selected after DOM is ready) ---
+        let galleryElement;
+        let previewModal;
+        let menuDrawer;
+        let menuBackdrop; 
+        let addImageForm;
+        let imageLinksInput;
+        let statusMessage;
+        let customConfirmModal;
+        let confirmYesBtn;
+        let confirmNoBtn;
+        let confirmResolver = null;
+        
+        /**
+         * Selects DOM elements after the window loads.
+         */
+        function selectDOMElements() {
+            galleryElement = document.getElementById('gallery');
+            previewModal = document.getElementById('large-preview-modal');
+            menuDrawer = document.getElementById('menu-drawer');
+            menuBackdrop = document.getElementById('menu-backdrop'); 
+            addImageForm = document.getElementById('add-image-form');
+            imageLinksInput = document.getElementById('image-links');
+            statusMessage = document.getElementById('status-message');
+            customConfirmModal = document.getElementById('custom-confirm-modal');
+            confirmYesBtn = document.getElementById('confirm-yes-btn');
+            confirmNoBtn = document.getElementById('confirm-no-btn');
+        }
+
+        // --- Utility Functions ---
+        
+        /**
+         * Custom confirmation modal to replace standard window.confirm()
+         * @param {string} message 
+         * @returns {Promise<boolean>}
+         */
+        function customConfirm(message) {
+            document.getElementById('confirm-message').textContent = message;
+            customConfirmModal.classList.remove('hidden');
+
+            return new Promise(resolve => {
+                confirmResolver = resolve;
+            });
+        }
+        
+        window.handleConfirmYes = function() {
+            customConfirmModal.classList.add('hidden');
+            if (confirmResolver) confirmResolver(true);
+        }
+
+        window.handleConfirmNo = function() {
+            customConfirmModal.classList.add('hidden');
+            if (confirmResolver) confirmResolver(false);
+        }
+
+
+        /**
+         * Utility to display temporary messages.
+         * @param {string} message 
+         * @param {boolean} isError 
+         */
+        function showStatus(message, isError = false) {
+            if (!statusMessage) return;
+            statusMessage.textContent = message;
+            statusMessage.className = `p-3 text-sm rounded-lg mt-4 ${
+                isError ? 'bg-red-900 text-red-300' : 'bg-green-900 text-green-300'
+            } fixed top-4 right-4 z-50 transition`;
+            statusMessage.classList.remove('hidden');
+            setTimeout(() => {
+                statusMessage.classList.add('hidden');
+            }, 3000);
+        }
+
+        /**
+         * Shuffles an array in place using the Fisher-Yates algorithm.
+         * @param {Array} array The array to shuffle.
+         * @returns {Array} A new shuffled array.
+         */
+        function shuffleArray(array) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+
+        // --- Local Storage Functions ---
+
+        /**
+         * Loads image URLs from localStorage and updates the allImages array.
+         */
+        function loadImages() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                allImages = stored ? JSON.parse(stored) : [];
+            } catch (e) {
+                console.error("Error loading from localStorage:", e);
+                allImages = [];
+                showStatus("Error loading saved links. Data might be corrupted.", true);
+            }
+            renderGallery();
+        }
+
+        /**
+         * Saves the current allImages array to localStorage.
+         */
+        function saveImages() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(allImages));
+            } catch (e) {
+                console.error("Error saving to localStorage:", e);
+                showStatus("Error saving data locally. Storage limit reached?", true);
+            }
+        }
+        
+        // --- Gallery Rendering and Interaction ---
+
+        /**
+         * Renders the gallery of thumbnails, shuffled randomly.
+         */
+        function renderGallery() {
+            // 1. Shuffle images for random order
+            displayedImages = shuffleArray(allImages);
+
+            // 2. Clear existing content
+            galleryElement.innerHTML = '';
+            
+            // 3. Render new thumbnails
+            if (displayedImages.length === 0) {
+                galleryElement.innerHTML = `
+                    <div class="col-span-2 lg:col-span-3 xl:col-span-4 text-center py-20 opacity-75">
+                        <p class="text-xl font-light text-gray-400">The canvas is empty. Add your first image link via the menu (bottom right)!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            displayedImages.forEach((url) => {
+                const container = document.createElement('div');
+                container.className = 'w-full transform transition duration-300 hover:scale-[1.01] rounded-lg shadow-lg overflow-hidden border border-gray-800 focus-ring';
+                container.tabIndex = 0;
+
+                const thumbnailContainer = document.createElement('div');
+                thumbnailContainer.className = 'thumbnail-container';
+
+                const image = document.createElement('img');
+                image.src = url;
+                image.alt = 'Gallery Image Thumbnail';
+                image.className = 'thumbnail-image';
+                image.loading = 'lazy';
+
+                // Fallback for broken links
+                image.onerror = () => {
+                    image.src = `https://placehold.co/600x600/1e293b/94a3b8?text=LINK+ERROR`;
+                    image.classList.add('p-4');
+                };
+
+                image.onclick = () => showLargePreview(url);
+                
+                container.onkeydown = (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        showLargePreview(url);
+                    }
+                };
+                
+                thumbnailContainer.appendChild(image);
+                container.appendChild(container); // Corrected this line to append container
+            });
+        }
+        
+        /**
+         * Shows the clicked image in a full-screen modal.
+         * @param {string} url The URL of the image to display.
+         */
+        function showLargePreview(url) {
+            // Reset the modal content structure
+            previewModal.innerHTML = `
+                <div class="relative w-full h-full flex items-center justify-center" onclick="event.stopPropagation()">
+                    <button onclick="window.closeLargePreview()" 
+                        class="absolute top-4 right-4 text-white text-3xl opacity-70 hover:opacity-100 transition p-2 bg-gray-900 rounded-full w-10 h-10 flex items-center justify-center focus-ring">&times;</button>
+                    <img id="preview-image-content" class="max-h-full max-w-full object-contain shadow-2xl rounded-lg" src="${url}" alt="Full Screen Preview">
+                </div>
+            `;
+            const imageContent = document.getElementById('preview-image-content');
+            previewModal.classList.remove('hidden');
+            
+            document.addEventListener('keydown', closePreviewOnEscape);
+            
+            // Error handling for the large image
+            imageContent.onerror = () => {
+                imageContent.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="%23d1d5db"><rect width="100" height="100" fill="%231f2937" /><text x="50" y="55" font-family="Inter" font-size="10" fill="%23f9fafb" text-anchor="middle">Error Loading Image</text></svg>';
+            };
+        }
+
+        /**
+         * Closes the large preview modal. (Exposed to window for HTML click handler)
+         */
+        window.closeLargePreview = function() {
+            previewModal.classList.add('hidden');
+            document.removeEventListener('keydown', closePreviewOnEscape);
+        }
+        
+        /**
+         * Helper to close the preview modal on Escape key press.
+         * @param {KeyboardEvent} e 
+         */
+        function closePreviewOnEscape(e) {
+            if (e.key === 'Escape') {
+                window.closeLargePreview();
+            }
+        }
+
+        // --- Menu Actions ---
+
+        /**
+         * Adds image links from the textarea to allImages and saves them.
+         * @param {Event} e 
+         */
+        function addImageLinks(e) {
+            e.preventDefault();
+
+            const linksText = imageLinksInput.value.trim();
+            if (!linksText) {
+                showStatus("Please paste image links (one per line).", true);
+                return;
+            }
+
+            // Filter for valid links (starting with http or data URI)
+            const newLinks = linksText.split('\n')
+                                   .map(link => link.trim())
+                                   .filter(link => link.length > 0 && (link.startsWith('http') || link.startsWith('data:')));
+
+            if (newLinks.length === 0) {
+                showStatus("No valid image URLs found. Links must start with 'http' or 'data:'.", true);
+                return;
+            }
+            
+            allImages.push(...newLinks);
+            saveImages();
+            imageLinksInput.value = ''; // Clear input on success
+            showStatus(`Successfully added ${newLinks.length} image link(s).`);
+            menuDrawer.classList.remove('open'); // Close menu after submission
+            menuBackdrop.classList.add('hidden'); // Hide backdrop immediately
+            renderGallery(); // Re-render to show new images
+        }
+
+        /**
+         * Deletes all image URLs from localStorage (Factory Reset).
+         */
+        window.factoryReset = async function() {
+            const confirmed = await customConfirm("Are you sure you want to delete ALL your saved image links? This action cannot be undone.");
+            
+            if (confirmed) {
+                localStorage.removeItem(STORAGE_KEY);
+                allImages = [];
+                showStatus(`Factory reset complete. All images deleted from local storage.`);
+                menuDrawer.classList.remove('open'); // Close menu after reset
+                menuBackdrop.classList.add('hidden'); // Hide backdrop
+                renderGallery();
+            }
+        }
+        
+        /**
+         * Re-renders the gallery with a new random order.
+         */
+        window.randomizeGallery = function() {
+            if (allImages.length === 0) {
+                showStatus("Nothing to randomize. Add some images first.", true);
+                return;
+            }
+            renderGallery(); // Re-renders, which includes a shuffle
+            showStatus("Image order randomized.");
+        }
+
+        /**
+         * Toggles the visibility of the menu drawer. (Exposed to window for HTML click handler)
+         */
+        window.toggleMenu = function() {
+            menuDrawer.classList.toggle('open');
+            // FIX: Toggle the hidden class on the backdrop so it stops blocking clicks when the menu is closed.
+            menuBackdrop.classList.toggle('hidden'); 
+        }
+
+        // --- Initial Setup and Event Bindings ---
+        function initApp() {
+            selectDOMElements();
+            addImageForm.addEventListener('submit', addImageLinks);
+            
+            // Note: The buttons for handleConfirmYes/No are attached via onclick in the HTML for simplicity, 
+            // but for full robustness, they should use addEventListener as shown below, though the current 
+            // setup works fine since they are static.
+            
+            // Ensure the menu closes if the backdrop is clicked
+            menuBackdrop.addEventListener('click', window.toggleMenu);
+
+            loadImages(); // Load data when the page finishes loading
+        }
+
+        window.onload = initApp;
+
+    </script>
+
+    <!-- Menu Drawer Backdrop -->
+    <div id="menu-backdrop" class="fixed inset-0 bg-black opacity-50 z-30 hidden"></div>
+
+    <!-- Menu Drawer (Slides in from the left) -->
+    <div id="menu-drawer" class="fixed top-0 left-0 w-80 h-full bg-gray-900 shadow-2xl z-40 p-6 flex flex-col">
+        
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-semibold text-indigo-400">Gallery Tools</h2>
+            <button onclick="toggleMenu()" class="p-2 text-white hover:text-indigo-400 transition focus-ring">&times;</button>
+        </div>
+
+        <!-- Add Image Section -->
+        <section class="mb-8 p-4 bg-gray-800 rounded-lg shadow-inner">
+            <h3 class="text-lg font-medium mb-3 text-indigo-300">1. Add New Images</h3>
+            <form id="add-image-form">
+                <label for="image-links" class="block text-sm font-light mb-2">Paste Links (One URL per line):</label>
+                <textarea id="image-links" rows="5" placeholder="https://example.com/image1.jpg
+https://another.net/image2.png"
+                    class="w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-sm text-gray-100 focus-ring"></textarea>
+                <button type="submit" class="mt-3 w-full p-2 bg-indigo-600 hover:bg-indigo-500 rounded-md text-white font-medium transition shadow-lg focus-ring">
+                    Save Links
+                </button>
+            </form>
+        </section>
+
+        <!-- Gallery Controls -->
+        <section class="space-y-4">
+            <h3 class="text-lg font-medium text-indigo-300">2. Gallery Actions</h3>
+            
+            <button onclick="factoryReset()" 
+                class="w-full p-3 bg-red-800 hover:bg-red-700 rounded-md text-white font-medium transition flex items-center justify-center space-x-2 shadow-lg focus-ring">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.986a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m-2.726 1.06l1.266 12.443L14.74 9m-4.788 0l-3.181 3.181" />
+                </svg>
+                <span>Factory Reset (Delete All)</span>
+            </button>
+        </section>
+        
+        <!-- Push other content up -->
+        <div class="flex-grow"></div> 
+    </div>
+
+    <!-- Main Content -->
+    <main class="min-h-screen p-4 md:p-8">
+        <h1 class="text-6xl md:text-8xl font-black tracking-widest text-center text-white mb-12 uppercase" style="text-shadow: 0 0 15px rgba(99, 102, 241, 0.5);">
+            FIGURATIVE
+        </h1>
+        
+        <!-- Gallery Grid (2 columns on mobile, adapts on larger screens) -->
+        <section id="gallery" class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+            <!-- Thumbnails will be rendered here by JavaScript -->
+            <div class="col-span-2 lg:col-span-3 xl:col-span-4 text-center py-20 opacity-75">
+                <div class="animate-pulse text-gray-600">Loading gallery...</div>
+            </div>
+        </section>
+        
+        <!-- Status Message Box (Hidden by default) -->
+        <div id="status-message" class="hidden"></div>
+    </main>
+    
+    <!-- Randomize Button (Bottom Left Corner) -->
+    <button id="randomize-btn" onclick="randomizeGallery()" 
+        class="fixed bottom-4 left-4 z-50 p-4 rounded-full shadow-2xl bg-gray-700 hover:bg-gray-600 transition focus-ring"
+        title="Randomize Image Order">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-white">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181-3.181m0-2.105A.25.25 0 0115.75 12a3.75 3.75 0 11-7.5 0 .25.25 0 01.385-.208z" />
+        </svg>
+    </button>
+    
+    <!-- Menu Button (Bottom Right Corner) -->
+    <button id="menu-btn" onclick="toggleMenu()" 
+        class="fixed bottom-4 right-4 z-50 p-4 rounded-full shadow-2xl bg-indigo-700 hover:bg-indigo-600 transition focus-ring"
+        title="Open Gallery Menu">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-white">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
+    </button>
+    
+
+    <!-- Large Image Preview Modal -->
+    <div id="large-preview-modal" class="hidden fixed inset-0 z-50 p-4 flex items-center justify-center" onclick="window.closeLargePreview()">
+        <!-- Content will be injected by JavaScript's showLargePreview function -->
+    </div>
+    
+    <!-- Custom Confirmation Modal (Replaces browser's alert/confirm) -->
+    <div id="custom-confirm-modal" class="hidden fixed inset-0 z-[60] p-4 flex items-center justify-center bg-black bg-opacity-70">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-2xl max-w-sm w-full border border-gray-700">
+            <h3 class="text-xl font-semibold mb-4 text-white">Confirm Action</h3>
+            <p id="confirm-message" class="text-gray-300 mb-6">Are you sure?</p>
+            <div class="flex justify-end space-x-3">
+                <button id="confirm-no-btn" onclick="handleConfirmNo()" class="px-4 py-2 text-gray-300 bg-gray-700 hover:bg-gray-600 rounded-md transition focus-ring">Cancel</button>
+                <button id="confirm-yes-btn" onclick="handleConfirmYes()" class="px-4 py-2 text-white bg-red-700 hover:bg-red-600 rounded-md transition focus-ring">Confirm Reset</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
