@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Art Models PDF Thumbnail Gallery</title>
+    <title id="page-title">PDF Selector</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load pdf.js library for rendering PDFs to canvas/images -->
@@ -26,39 +26,81 @@
             pointer-events: auto;
             visibility: visible;
         }
+        /* Style for buttons/links */
+        .pdf-link {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .pdf-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(129, 140, 248, 0.5), 0 4px 6px -2px rgba(129, 140, 248, 0.2);
+        }
     </style>
 </head>
 <body class="bg-gray-900 min-h-screen p-4 sm:p-8 flex flex-col items-center">
 
-    <!-- Header -->
+    <!-- Header (Always visible) -->
     <header class="w-full max-w-7xl mb-6">
         <h1 class="text-3xl sm:text-4xl font-extrabold text-white text-center">
-            <span class="text-indigo-400">Art Models</span> Thumbnail Gallery
+            <span class="text-indigo-400">PDF Gallery</span> Navigator
         </h1>
-        <p class="text-gray-400 text-center mt-2">
-            Loading pages from: <code id="pdf-path-display" class="bg-gray-800 text-sm p-1 rounded">pdf/art-models/Art_Models_1.pdf</code>
-        </p>
+        <button id="back-button" class="hidden absolute top-4 left-4 sm:top-8 sm:left-8 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200 shadow-md z-10" onclick="window.location.search = '';">
+            &larr; Back to List
+        </button>
+        <p id="current-pdf-display" class="text-gray-400 text-center mt-2"></p>
     </header>
 
-    <!-- Main Content: Thumbnails Grid -->
-    <main class="w-full max-w-7xl flex-grow bg-gray-800 rounded-xl shadow-2xl p-4">
-        <div id="loading-message" class="text-white text-center text-xl p-8 rounded-lg bg-gray-700">
-            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Fetching PDF file...
-        </div>
-        
-        <!-- Thumbnail Container: 2-column grid -->
-        <div id="thumbnail-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 hidden">
-            <!-- Thumbnails will be injected here by JavaScript -->
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="w-full max-w-7xl flex-grow bg-gray-800 rounded-xl shadow-2xl p-4 sm:p-8">
+
+        <!-- HOME VIEW: PDF LIST -->
+        <div id="home-container" class="hidden">
+            <h2 class="text-2xl font-bold text-white mb-6 border-b border-gray-700 pb-2">Available PDF Documents</h2>
+            
+            <div id="manifest-loading" class="text-white text-center text-xl p-8 rounded-lg bg-gray-700">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Fetching PDF list...
+            </div>
+
+            <div id="no-pdfs-message" class="hidden p-6 bg-yellow-900 rounded-lg text-yellow-300">
+                <p class="font-bold mb-2">No PDFs Found.</p>
+                <p>To enable dynamic loading, you must create a file named <code class="bg-yellow-800 text-sm p-1 rounded">pdf/art-models/manifest.json</code>.</p>
+                <p class="mt-2 text-sm">This file should contain a JSON array of your PDF filenames, like this:</p>
+                <pre class="bg-yellow-800 p-2 mt-2 rounded-md overflow-x-auto text-xs"><code>[
+  "Art_Models_1.pdf",
+  "Art_Models_2.pdf",
+  "Sample_Architecture_Guide.pdf"
+]</code></pre>
+            </div>
+
+            <div id="pdf-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 hidden">
+                <!-- PDF list buttons will be injected here -->
+            </div>
         </div>
 
-        <div id="error-message" class="hidden text-red-400 text-center p-8 bg-red-900 rounded-lg mt-4">
-            <p class="font-bold mb-2">Error Loading PDF</p>
-            <p id="detailed-error"></p>
-            <p class="mt-4">Please ensure the file path is correct and the PDF is accessible.</p>
+        <!-- VIEWER VIEW: THUMBNAIL GALLERY -->
+        <div id="viewer-container" class="hidden">
+            <div id="loading-message" class="text-white text-center text-xl p-8 rounded-lg bg-gray-700">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Fetching PDF file...
+            </div>
+            
+            <!-- Thumbnail Container: 2-column grid -->
+            <div id="thumbnail-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 hidden">
+                <!-- Thumbnails will be injected here by JavaScript -->
+            </div>
+
+            <div id="error-message" class="hidden text-red-400 text-center p-8 bg-red-900 rounded-lg mt-4">
+                <p class="font-bold mb-2">Error Loading PDF</p>
+                <p id="detailed-error"></p>
+                <p class="mt-4">Please ensure the file path is correct and the PDF is accessible.</p>
+            </div>
         </div>
     </main>
 
@@ -75,9 +117,12 @@
         </div>
     </div>
 
-    <!-- JavaScript for PDF Rendering and Interaction -->
+    <!-- JavaScript for Routing, PDF Rendering and Interaction -->
     <script>
-        const pdfPath = 'pdf/art-models/Art_Models_1.pdf';
+        // --- Configuration and Elements ---
+        const BASE_PDF_PATH = 'pdf/art-models/';
+        const MANIFEST_URL = BASE_PDF_PATH + 'manifest.json';
+        
         const thumbnailGrid = document.getElementById('thumbnail-grid');
         const loadingMessage = document.getElementById('loading-message');
         const errorMessage = document.getElementById('error-message');
@@ -86,9 +131,28 @@
         const largePreviewImage = document.getElementById('large-preview-image');
         const closeModalButton = document.getElementById('close-modal');
         const modalPageLabel = document.getElementById('modal-page-label');
+        const homeContainer = document.getElementById('home-container');
+        const viewerContainer = document.getElementById('viewer-container');
+        const pdfListContainer = document.getElementById('pdf-list');
+        const backButton = document.getElementById('back-button');
+        const currentPdfDisplay = document.getElementById('current-pdf-display');
+        const pageTitle = document.getElementById('page-title');
+        const manifestLoading = document.getElementById('manifest-loading');
+        const noPdfsMessage = document.getElementById('no-pdfs-message');
 
-        // Set the worker source URL, crucial for PDF.js to function
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+        // --- Utility Functions ---
+
+        /**
+         * Parses the URL search string for a given parameter name.
+         */
+        function getUrlParameter(name) {
+            name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+            var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+            var results = regex.exec(location.search);
+            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        }
 
         /**
          * Helper function to handle async fetching with exponential backoff and retries.
@@ -98,19 +162,40 @@
                 try {
                     const response = await fetch(url);
                     if (!response.ok) {
-                        // Throw specific error for network failures (404, 500, etc.)
                         throw new Error(`HTTP error! status: ${response.status} (${response.statusText})`);
                     }
                     return response;
                 } catch (error) {
-                    // console.warn is used for exponential backoff retries, not errors
                     if (i === attempts - 1) throw error;
-                    // Exponential backoff: wait 1s, 2s, 4s
+                    // Exponential backoff
                     await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
                 }
             }
         }
         
+        /**
+         * Fetches the list of PDF files from the manifest.json.
+         */
+        async function fetchPdfList() {
+            try {
+                // Try to fetch the manifest file
+                const response = await fetchWithRetry(MANIFEST_URL);
+                const fileNames = await response.json();
+
+                // Validate the response format
+                if (Array.isArray(fileNames) && fileNames.every(name => typeof name === 'string' && name.endsWith('.pdf'))) {
+                    return fileNames;
+                } else {
+                    console.error('Manifest file is present but invalid. Expected a JSON array of strings ending in .pdf');
+                    return [];
+                }
+            } catch (error) {
+                // This will likely catch the 404 error if manifest.json is missing
+                console.warn('Could not fetch PDF manifest. Assuming no PDFs are available or manifest is missing.', error.message);
+                return [];
+            }
+        }
+
         /**
          * Function to render a single PDF page to a canvas and return the image data URL.
          */
@@ -128,27 +213,79 @@
             };
 
             await page.render(renderContext).promise;
-            return canvas.toDataURL('image/jpeg', 0.8); // Use JPEG for smaller file size
+            return canvas.toDataURL('image/jpeg', 0.8);
+        }
+
+        // --- View Handlers ---
+
+        /**
+         * Renders the Home View (list of PDFs).
+         */
+        async function renderHome() {
+            homeContainer.classList.remove('hidden');
+            viewerContainer.classList.add('hidden');
+            backButton.classList.add('hidden');
+            pageTitle.textContent = "PDF Selector";
+            currentPdfDisplay.textContent = 'Fetching available PDF documents...';
+
+            manifestLoading.classList.remove('hidden');
+            pdfListContainer.classList.add('hidden');
+            noPdfsMessage.classList.add('hidden');
+            pdfListContainer.innerHTML = ''; // Clear previous list
+
+            const pdfFiles = await fetchPdfList();
+
+            manifestLoading.classList.add('hidden');
+            currentPdfDisplay.textContent = 'Select a document to view its thumbnail gallery.';
+
+            if (pdfFiles.length > 0) {
+                pdfListContainer.classList.remove('hidden');
+                pdfFiles.forEach(fileName => {
+                    const link = document.createElement('a');
+                    // Set the URL search parameter for routing
+                    link.href = `?file=${encodeURIComponent(fileName)}`; 
+                    link.className = 'pdf-link flex flex-col items-center p-4 bg-indigo-600 rounded-xl shadow-lg text-white font-semibold text-center border-b-4 border-indigo-700';
+                    link.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 mb-2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m5.25 9L15 12.75l1.875 1.875M16.875 14.625v-4.5h2.25c.828 0 1.5.672 1.5 1.5v2.25c0 .828-.672 1.5-1.5 1.5h-2.25Z" />
+                        </svg>
+                        <span>${fileName}</span>
+                    `;
+                    pdfListContainer.appendChild(link);
+                });
+            } else {
+                noPdfsMessage.classList.remove('hidden');
+            }
         }
 
         /**
-         * Main function to load PDF data and render all thumbnails.
+         * Renders the Viewer View (Thumbnail Gallery) for a specific PDF.
          */
-        async function loadPDFAndRenderThumbnails() {
+        async function loadPDFAndRenderThumbnails(pdfPath, fileName) {
+            homeContainer.classList.add('hidden');
+            viewerContainer.classList.remove('hidden');
+            backButton.classList.remove('hidden');
+            pageTitle.textContent = fileName;
+            currentPdfDisplay.innerHTML = `Loading pages from: <code class="bg-gray-800 text-sm p-1 rounded">${pdfPath}</code>`;
+            
+            thumbnailGrid.innerHTML = '';
+            thumbnailGrid.classList.add('hidden');
+            loadingMessage.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+
             try {
+                // 1. Fetch the PDF file data as ArrayBuffer
                 loadingMessage.innerHTML = 'Fetching PDF file...';
-                
-                // 1. Fetch the PDF file data as ArrayBuffer using the robust fetcher
                 const response = await fetchWithRetry(pdfPath);
                 const arrayBuffer = await response.arrayBuffer();
 
                 loadingMessage.innerHTML = 'PDF fetched. Rendering pages...';
                 
-                // 2. Load PDF document from ArrayBuffer data (more reliable than URL)
+                // 2. Load PDF document from ArrayBuffer data
                 const pdfData = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
                 const numPages = pdfData.numPages;
 
-                loadingMessage.innerHTML = `Rendering ${numPages} pages...`;
+                loadingMessage.innerHTML = `Rendering ${numPages} pages... This may take a moment.`;
                 thumbnailGrid.classList.remove('hidden');
 
                 // 3. Iterate through all pages
@@ -175,36 +312,24 @@
                     const img = document.createElement('img');
                     img.src = thumbnailUrl;
                     img.alt = `Thumbnail of page ${i}`;
-                    img.className = 'w-full h-auto block transform transition-opacity duration-300 opacity-0';
+                    img.className = 'w-full h-auto block transition-opacity duration-300 opacity-0';
                     img.setAttribute('data-full-src', largePreviewUrl);
-                    img.setAttribute('data-page', i);
                     
                     // On image load, fade it in and set click handler
                     img.onload = () => {
                         img.classList.remove('opacity-0');
-                        // Safely remove placeholder if it still exists
                         if (thumbnailWrapper.contains(placeholder)) {
                              thumbnailWrapper.removeChild(placeholder);
                         }
                         thumbnailWrapper.appendChild(img);
                     };
-                    
-                    // Fallback in case onload doesn't fire immediately (e.g. cached data URL)
-                    if (img.complete && thumbnailUrl.startsWith('data:')) {
-                         img.classList.remove('opacity-0');
-                         if (thumbnailWrapper.contains(placeholder)) {
-                             thumbnailWrapper.removeChild(placeholder);
-                         }
-                         thumbnailWrapper.appendChild(img);
-                    }
-
 
                     // Click handler to open modal
                     thumbnailWrapper.onclick = () => {
                         largePreviewImage.src = largePreviewUrl;
-                        modalPageLabel.textContent = `Page ${i} of ${numPages}`;
+                        modalPageLabel.textContent = `Page ${i} of ${numPages} for ${fileName}`;
                         modal.classList.add('active');
-                        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+                        document.body.style.overflow = 'hidden';
                     };
 
                     // Add page number overlay
@@ -215,11 +340,13 @@
                 }
 
             } catch (error) {
-                // Display the specific error message, which should now indicate a network issue (like a 404)
                 console.error('Error loading or rendering PDF:', error);
-                detailedError.textContent = error.message.includes("HTTP error! status") 
+                
+                const pathError = error.message.includes("HTTP error! status") 
                     ? `Network error: ${error.message}. Check that the path "${pdfPath}" is correct.`
                     : `Processing error: ${error.message}`;
+
+                detailedError.textContent = pathError;
                 errorMessage.classList.remove('hidden');
 
             } finally {
@@ -227,24 +354,35 @@
             }
         }
 
-        // Modal Close Handlers
-        closeModalButton.onclick = () => {
-            modal.classList.remove('active');
-            document.body.style.overflow = ''; // Restore background scrolling
-        };
+        // --- Initial Routing & Execution ---
         
-        // Close modal when clicking outside the image
-        modal.onclick = (e) => {
-            // Check if the click target is the modal itself (not the image or button)
-            if (e.target === modal) {
+        window.onload = function() {
+            // Modal Close Handlers (only attach once)
+            closeModalButton.onclick = () => {
                 modal.classList.remove('active');
                 document.body.style.overflow = '';
+            };
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            };
+            
+            // Check for file parameter to determine view
+            const requestedFileName = getUrlParameter('file');
+
+            if (requestedFileName) {
+                // Viewer Mode
+                const pdfPath = `${BASE_PDF_PATH}${requestedFileName}`;
+                loadPDFAndRenderThumbnails(pdfPath, requestedFileName);
+            } else {
+                // Home Mode (Default)
+                renderHome();
             }
         };
-
-        // Start the process when the window loads
-        window.onload = loadPDFAndRenderThumbnails;
 
     </script>
 </body>
 </html>
+
