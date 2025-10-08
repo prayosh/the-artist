@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artistic PDF Thumbnail Gallery</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font and scrollbar for artistic dark theme */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        
+        :root {
+            /* Changed theme from yellow/orange to blue-purple */
+            --primary-color: #a7a5ff; /* Soft vibrant blue-purple */ 
+            --background-color: #1a1a2e; /* Deep purple-black */
+            --card-color: #2c2c4b; /* Slightly lighter card background */
+            --text-color: #e5e5e5; /* Off-white text */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            transition: background-color 0.3s ease;
+        }
+
+        /* Custom scrollbar styling for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #2c2c4b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4e4e7e;
+            border-radius: 4px;
+        }
+        /* Updated hover color to match new theme */
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9090f0;
+        }
+
+        /* Styling for the large image modal backdrop */
+        .modal-backdrop {
+            backdrop-filter: blur(8px);
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+        
+        /* Thumbnail styling for subtle lift on hover */
+        .thumbnail-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            overflow: hidden;
+        }
+        .thumbnail-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="p-4 sm:p-8 min-h-screen">
+        <!-- Application Title -->
+        <h1 class="text-3xl sm:text-4xl font-extrabold mb-8 text-center" style="color: var(--primary-color);">
+            Digital Art Model Archive
+        </h1>
+
+        <!-- Content Area -->
+        <div id="content-area" class="max-w-6xl mx-auto">
+            <!-- Content will be injected here (PDF List or Thumbnail View) -->
+        </div>
+    </div>
+
+    <!-- Large Image Preview Modal -->
+    <div id="large-image-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
+        <div class="relative p-2 w-full max-w-full h-full flex items-center justify-center">
+            <button id="close-modal-btn" class="absolute top-4 right-4 text-white text-3xl font-bold p-2 rounded-full bg-red-600 hover:bg-red-700 transition duration-300 z-50">
+                &times;
+            </button>
+            <img id="modal-image" src="" alt="Large Preview" class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-2xl transition duration-500 ease-in-out">
+        </div>
+    </div>
+
+    <script>
+        // --- Mock Data Simulation ---
+        // Since we cannot read actual files, we use mock data to simulate PDF file paths and pages.
+        // NOTE: MOCK_PDF_DATA has been set to an empty array [] to demonstrate the "no PDFs available" message, 
+        // which correctly removes the list header as requested.
+        const MOCK_PDF_DATA = []; 
+
+        // --- Application State ---
+        let currentView = 'list'; // 'list' or 'detail'
+        let selectedPdf = null;
+        let shuffledImages = [];
+        
+        const contentArea = document.getElementById('content-area');
+        const modal = document.getElementById('large-image-modal');
+        const modalImage = document.getElementById('modal-image');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+
+
+        // --- Utility Functions ---
+
+        /**
+         * Shuffles an array in place (Fisher-Yates algorithm).
+         * @param {Array} array The array to shuffle.
+         * @returns {Array} The shuffled array.
+         */
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        /**
+         * Closes the large image modal.
+         */
+        function closeModal() {
+            modal.classList.add('hidden');
+            modalImage.src = '';
+        }
+
+        // --- View Rendering ---
+
+        /**
+         * Renders the main PDF list view.
+         */
+        function renderPdfList() {
+            // Default path for display if no PDFs are present
+            const pdfPath = MOCK_PDF_DATA.length > 0 ? MOCK_PDF_DATA[0].path : 'pdf/art-models/';
+            
+            // Check if MOCK_PDF_DATA is empty and display a message, then return early
+            // This ensures the header is NOT displayed when no PDFs are available.
+            if (MOCK_PDF_DATA.length === 0) {
+                contentArea.innerHTML = `
+                    <div class="p-12 text-center rounded-xl shadow-lg mt-10" style="background-color: var(--card-color); border: 2px solid var(--primary-color);">
+                        <p class="text-xl font-semibold" style="color: var(--primary-color);">
+                            No PDF documents are currently available in the archive path (${pdfPath}).
+                        </p>
+                        <p class="text-sm text-gray-400 mt-2">
+                            To view the gallery, please add data to the ${'MOCK_PDF_DATA'} array.
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+
+            // If PDFs ARE available, render the header and the list grid
+            contentArea.innerHTML = `
+                <h2 class="text-2xl font-semibold mb-6 text-white border-b border-gray-600 pb-2">Available PDF Documents (${pdfPath})</h2>
+                <div id="pdf-list-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${MOCK_PDF_DATA.map(pdf => `
+                        <div data-id="${pdf.id}" 
+                             class="pdf-card thumbnail-card bg-card-color rounded-xl shadow-lg hover:shadow-2xl transition duration-300 ease-in-out p-4 flex flex-col items-center border border-transparent hover:border-primary-color"
+                             style="background-color: var(--card-color);">
+                            
+                            <h3 class="text-lg font-bold mb-3 text-center" style="color: var(--primary-color);">
+                                ${pdf.name}
+                            </h3>
+                            
+                            <div class="w-full h-64 overflow-hidden rounded-lg mb-3">
+                                <img src="${pdf.images[0]}" alt="First Page of ${pdf.name}" 
+                                     class="w-full h-full object-contain" 
+                                     onerror="this.onerror=null; this.src='https://placehold.co/400x550/374151/e5e7eb?text=PDF+Error';"
+                                >
+                            </div>
+                            <p class="text-sm text-gray-400">Total Pages: ${pdf.images.length}</p>
+                            <button class="view-btn mt-4 w-full py-2 rounded-lg font-semibold text-white transition duration-300 transform hover:scale-[1.02]"
+                                style="background-color: var(--primary-color);">
+                                View Thumbnails
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            // Attach event listeners for PDF cards
+            contentArea.querySelectorAll('.pdf-card').forEach(card => {
+                const pdfId = card.getAttribute('data-id');
+                card.querySelector('.view-btn').addEventListener('click', () => {
+                    navigateToDetail(pdfId);
+                });
+            });
+        }
+
+
+        /**
+         * Renders the thumbnail gallery for the selected PDF.
+         */
+        function renderThumbnails() {
+            const pdf = selectedPdf;
+            if (!pdf) return;
+
+            // Header and Back Button
+            let html = `
+                <nav class="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
+                    <button id="back-to-list-btn" class="flex items-center text-lg font-semibold text-white hover:text-primary-color transition duration-200">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        Back to List
+                    </button>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-center mx-4" style="color: var(--primary-color);">
+                        ${pdf.name}
+                    </h2>
+                    <div class="w-32"></div> <!-- Spacer for alignment -->
+                </nav>
+            `;
+
+            // Thumbnail Grid
+            html += `
+                <div id="thumbnail-grid" class="grid grid-cols-2 gap-4 sm:gap-6">
+                    ${shuffledImages.map((imgSrc, index) => `
+                        <div class="thumbnail-card bg-card-color rounded-lg shadow-md aspect-[3/4] overflow-hidden" 
+                             style="background-color: var(--card-color); border: 1px solid #4e4e7e;">
+                            <img src="${imgSrc}" alt="Page ${index + 1}" data-index="${index}" 
+                                 class="w-full h-full object-cover transition duration-300 ease-in-out hover:scale-105" 
+                                 onerror="this.onerror=null; this.src='https://placehold.co/400x600/374151/e5e7eb?text=Page+Error';"
+                            >
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            // Randomize Button (Bottom Left Corner)
+            html += `
+                <div class="fixed bottom-4 left-4 z-40">
+                    <button id="randomize-btn" class="flex items-center px-4 py-2 rounded-full font-bold text-lg text-white shadow-xl transition duration-300 transform hover:scale-105"
+                        style="background-color: var(--primary-color);">
+                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.34 19M7 19h1.582m4.356 2A8.001 8.001 0 0020.356 4M6 6h.01"></path></svg>
+                        Randomize Order
+                    </button>
+                </div>
+            `;
+
+            contentArea.innerHTML = html;
+            
+            // Attach Detail View Listeners
+            document.getElementById('back-to-list-btn').addEventListener('click', navigateToList);
+            document.getElementById('randomize-btn').addEventListener('click', randomizeAndRender);
+            
+            contentArea.querySelectorAll('#thumbnail-grid img').forEach(img => {
+                img.addEventListener('click', (e) => showLargeImage(e.target.src));
+            });
+        }
+
+        // --- Navigation Logic ---
+
+        /**
+         * Switches the view to the PDF list.
+         */
+        function navigateToList() {
+            currentView = 'list';
+            selectedPdf = null;
+            shuffledImages = [];
+            renderPdfList();
+            window.scrollTo(0, 0); // Scroll to top
+        }
+
+        /**
+         * Switches the view to the PDF detail (thumbnail) page.
+         * @param {string} pdfId The ID of the PDF to display.
+         */
+        function navigateToDetail(pdfId) {
+            selectedPdf = MOCK_PDF_DATA.find(pdf => pdf.id === pdfId);
+            if (!selectedPdf) {
+                console.error("PDF not found:", pdfId);
+                return;
+            }
+            
+            // Initialize and shuffle the images for the first time
+            shuffledImages = shuffleArray([...selectedPdf.images]); // Clone and shuffle
+            currentView = 'detail';
+            renderThumbnails();
+            window.scrollTo(0, 0); // Scroll to top
+        }
+
+        /**
+         * Re-shuffles the current images and re-renders the thumbnail view.
+         */
+        function randomizeAndRender() {
+            shuffledImages = shuffleArray(shuffledImages); // Re-shuffle the existing array
+            renderThumbnails();
+            window.scrollTo(0, 0); // Scroll to top
+        }
+
+        /**
+         * Displays the selected image in a full-width modal.
+         * @param {string} imgSrc The source URL of the image.
+         */
+        function showLargeImage(imgSrc) {
+            modalImage.src = imgSrc;
+            // The image should take up the device width visually within the max-width/max-height constraints
+            modal.classList.remove('hidden');
+        }
+
+
+        // --- Initialization ---
+
+        // Event listener to close the modal
+        closeModalBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            // Close if clicking the backdrop, but not the image itself
+            if (e.target.id === 'large-image-modal' || e.target.id === 'close-modal-btn') {
+                closeModal();
+            }
+        });
+
+        // Start the application by rendering the list view
+        navigateToList();
+    </script>
+
+</body>
+</html>
