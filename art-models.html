@@ -58,7 +58,8 @@
         .pdf-link {
             transition: all 0.2s ease-in-out;
             cursor: pointer;
-            word-break: break-all; /* Ensures long file names wrap */
+            word-break: break-words; /* Ensures long file names wrap */
+            height: auto !important; /* Override fixed height for responsiveness */
         }
         .pdf-link:hover {
             transform: translateY(-2px);
@@ -136,8 +137,8 @@
                 <p>Ensure that a file named <code class="bg-yellow-800 text-sm p-1 rounded">pdf/art-models/manifest.json</code> exists and is correctly structured.</p>
             </div>
 
-            <!-- Changed class to enforce 2 columns -->
-            <div id="pdf-list" class="grid grid-cols-2 gap-6 hidden"> 
+            <!-- Grid container for 2 columns -->
+            <div id="pdf-list" class="grid grid-cols-2 gap-4 sm:gap-6 hidden"> 
                 <!-- PDF list buttons will be injected here -->
             </div>
         </div>
@@ -318,10 +319,11 @@
                     const link = document.createElement('a');
                     // Set the URL search parameter for routing
                     link.href = `?file=${encodeURIComponent(fileName)}`; 
-                    link.className = 'pdf-link flex flex-col items-center justify-center p-6 h-32 bg-indigo-600 rounded-xl shadow-lg text-white font-semibold text-center border-b-4 border-indigo-700';
+                    // Adjusted classes for thinner box: py-3 instead of p-6, removed h-32
+                    link.className = 'pdf-link flex flex-col items-center justify-center px-4 py-3 bg-indigo-600 rounded-xl shadow-lg text-white font-semibold text-center border-b-4 border-indigo-700';
                     
                     // Removed the SVG icon as requested
-                    link.innerHTML = `<span>${fileName}</span>`;
+                    link.innerHTML = `<span class="break-words">${fileName}</span>`;
 
                     pdfListContainer.appendChild(link);
                 });
