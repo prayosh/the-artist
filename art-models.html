@@ -68,7 +68,7 @@
 
         <!-- Content Area -->
         <div id="content-area" class="max-w-6xl mx-auto">
-            <!-- Content will be injected here (PDF List or Thumbnail View) -->
+            <!-- Content will be injected here (PDF Cover Preview or Thumbnail Gallery) -->
         </div>
     </div>
 
@@ -86,53 +86,28 @@
 
     <script>
         // --- Mock Data Simulation ---
-        // RESTORED mock data to demonstrate functionality.
+        // Updated to contain only the single requested PDF: pdf/art-models/Art_Models_1.pdf
         const MOCK_PDF_DATA = [
             {
-                id: 'art-history-vol1',
-                path: 'pdf/art-models/',
-                name: 'Renaissance Figure Studies Vol. 1',
+                id: 'art-models-1',
+                path: 'pdf/art-models/Art_Models_1.pdf',
+                name: 'Art Models Vol. 1',
                 images: [
-                    'https://placehold.co/400x550/2c2c4b/a7a5ff?text=RFS+Page+1',
-                    'https://placehold.co/550x400/2c2c4b/a7a5ff?text=RFS+Page+2',
-                    'https://placehold.co/400x600/2c2c4b/a7a5ff?text=RFS+Page+3',
-                    'https://placehold.co/600x400/2c2c4b/a7a5ff?text=RFS+Page+4',
-                    'https://placehold.co/400x500/2c2c4b/a7a5ff?text=RFS+Page+5',
-                    'https://placehold.co/500x400/2c2c4b/a7a5ff?text=RFS+Page+6',
-                ]
-            },
-            {
-                id: 'modern-sculpture',
-                path: 'pdf/art-models/',
-                name: 'Modern Sculpture Poses 1920-1960',
-                images: [
-                    'https://placehold.co/450x450/2c2c4b/a7a5ff?text=MSP+Page+1',
-                    'https://placehold.co/400x650/2c2c4b/a7a5ff?text=MSP+Page+2',
-                    'https://placehold.co/650x400/2c2c4b/a7a5ff?text=MSP+Page+3',
-                    'https://placehold.co/500x600/2c2c4b/a7a5ff?text=MSP+Page+4',
-                ]
-            },
-            {
-                id: 'academic-drawing',
-                path: 'pdf/art-models/',
-                name: 'Academic Drawing Reference Guide',
-                images: [
-                    'https://placehold.co/500x500/2c2c4b/a7a5ff?text=ADRG+Page+1',
-                    'https://placehold.co/400x700/2c2c4b/a7a5ff?text=ADRG+Page+2',
-                    'https://placehold.co/700x400/2c2c4b/a7a5ff?text=ADRG+Page+3',
-                    'https://placehold.co/550x450/2c2c4b/a7a5ff?text=ADRG+Page+4',
-                    'https://placehold.co/400x620/2c2c4b/a7a5ff?text=ADRG+Page+5',
-                    'https://placehold.co/620x400/2c2c4b/a7a5ff?text=ADRG+Page+6',
-                    'https://placehold.co/400x580/2c2c4b/a7a5ff?text=ADRG+Page+7',
-                    'https://placehold.co/580x400/2c2c4b/a7a5ff?text=ADRG+Page+8',
-                    'https://placehold.co/400x640/2c2c4b/a7a5ff?text=ADRG+Page+9',
-                    'https://placehold.co/640x400/2c2c4b/a7a5ff?text=ADRG+Page+10',
+                    'https://placehold.co/400x550/2c2c4b/a7a5ff?text=Page+1+(Cover)',
+                    'https://placehold.co/550x400/2c2c4b/a7a5ff?text=Page+2',
+                    'https://placehold.co/400x600/2c2c4b/a7a5ff?text=Page+3',
+                    'https://placehold.co/600x400/2c2c4b/a7a5ff?text=Page+4',
+                    'https://placehold.co/400x500/2c2c4b/a7a5ff?text=Page+5',
+                    'https://placehold.co/500x400/2c2c4b/a7a5ff?text=Page+6',
+                    'https://placehold.co/400x500/2c2c4b/a7a5ff?text=Page+7',
+                    'https://placehold.co/500x400/2c2c4b/a7a5ff?text=Page+8',
                 ]
             },
         ];
 
         // --- Application State ---
-        let currentView = 'list'; // 'list' or 'detail'
+        // 'list' now acts as the single PDF cover preview
+        let currentView = 'list'; 
         let selectedPdf = null;
         let shuffledImages = [];
         
@@ -168,70 +143,49 @@
         // --- View Rendering ---
 
         /**
-         * Renders the main PDF list view.
+         * Renders the single PDF cover preview (simulating the 'list' view).
          */
         function renderPdfList() {
-            // Default path for display if no PDFs are present
-            const pdfPath = MOCK_PDF_DATA.length > 0 ? MOCK_PDF_DATA[0].path : 'pdf/art-models/';
-            
-            // Handle case where MOCK_PDF_DATA is empty (no header displayed)
-            if (MOCK_PDF_DATA.length === 0) {
-                contentArea.innerHTML = `
-                    <div class="p-12 text-center rounded-xl shadow-lg mt-10" style="background-color: var(--card-color); border: 2px solid var(--primary-color);">
-                        <p class="text-xl font-semibold" style="color: var(--primary-color);">
-                            No PDF documents are currently available in the archive path (${pdfPath}).
-                        </p>
-                        <p class="text-sm text-gray-400 mt-2">
-                            To view the gallery, please add data to the ${'MOCK_PDF_DATA'} array.
-                        </p>
-                    </div>
-                `;
-                return;
-            }
+            const pdf = MOCK_PDF_DATA[0];
+            const pdfPath = pdf.path;
 
-            // If PDFs ARE available, render the header and the list grid (line by line)
             contentArea.innerHTML = `
-                <h2 class="text-2xl font-semibold mb-6 text-white border-b border-gray-600 pb-2">Available PDF Documents (${pdfPath})</h2>
-                <!-- Layout is now single column (line by line) for the PDF list -->
-                <div id="pdf-list-grid" class="grid grid-cols-1 gap-6">
-                    ${MOCK_PDF_DATA.map(pdf => `
-                        <div data-id="${pdf.id}" 
-                             class="pdf-card thumbnail-card bg-card-color rounded-xl shadow-lg hover:shadow-2xl transition duration-300 ease-in-out p-4 flex items-center justify-between border border-transparent hover:border-primary-color"
-                             style="background-color: var(--card-color);">
-                            
-                            <!-- PDF Info (Name and Page Count) -->
-                            <div class="flex-grow">
-                                <h3 class="text-xl font-bold mb-1" style="color: var(--primary-color);">
-                                    ${pdf.name}
-                                </h3>
-                                <p class="text-sm text-gray-400">Total Pages: ${pdf.images.length}</p>
-                                <button class="view-btn mt-3 px-4 py-1 rounded-lg font-semibold text-white transition duration-300 transform hover:scale-[1.05]"
-                                    style="background-color: var(--primary-color);">
-                                    View Thumbnails
-                                </button>
-                            </div>
-
-                            <!-- First Page Preview (Small display) -->
-                            <div class="w-20 h-28 overflow-hidden rounded-lg ml-6 flex-shrink-0">
-                                <img src="${pdf.images[0]}" alt="First Page of ${pdf.name}" 
-                                     class="w-full h-full object-contain" 
-                                     onerror="this.onerror=null; this.src='https://placehold.co/400x550/374151/e5e7eb?text=PDF';"
-                                >
-                            </div>
-
+                <h2 class="text-2xl font-semibold mb-6 text-white border-b border-gray-600 pb-2">PDF Document: ${pdf.name}</h2>
+                <div class="max-w-sm mx-auto">
+                    <div data-id="${pdf.id}" 
+                         class="pdf-card thumbnail-card bg-card-color rounded-xl shadow-lg hover:shadow-2xl transition duration-300 ease-in-out p-6 flex flex-col items-center border border-transparent hover:border-primary-color"
+                         style="background-color: var(--card-color);">
+                        
+                        <h3 class="text-xl font-bold mb-4 text-center" style="color: var(--primary-color);">
+                            ${pdf.name}
+                        </h3>
+                        
+                        <!-- First Page Preview (The clickable item) -->
+                        <div class="w-48 h-64 overflow-hidden rounded-lg mb-4 cursor-pointer">
+                            <img src="${pdf.images[0]}" alt="First Page of ${pdf.name}" 
+                                 class="w-full h-full object-contain transition duration-300 hover:scale-[1.05]" 
+                                 onerror="this.onerror=null; this.src='https://placehold.co/400x550/374151/e5e7eb?text=PDF+Cover';"
+                            >
                         </div>
-                    `).join('')}
+
+                        <p class="text-sm text-gray-400 mb-4">Total Pages: ${pdf.images.length}</p>
+                        <button class="view-btn w-full py-2 rounded-lg font-semibold text-white transition duration-300 transform hover:scale-[1.02]"
+                            style="background-color: var(--primary-color);">
+                            Open Thumbnail Gallery
+                        </button>
+                    </div>
                 </div>
+                <p class="text-center text-sm text-gray-500 mt-4">File Path: ${pdfPath}</p>
             `;
             
-            // Attach event listeners for PDF cards
-            contentArea.querySelectorAll('.pdf-card').forEach(card => {
-                const pdfId = card.getAttribute('data-id');
-                // The click target is the button for clarity in the list view
-                card.querySelector('.view-btn').addEventListener('click', () => {
-                    navigateToDetail(pdfId);
-                });
-            });
+            // Attach event listeners to both the button and the image
+            const card = contentArea.querySelector('.pdf-card');
+            const pdfId = card.getAttribute('data-id');
+            
+            const navigateToDetailHandler = () => navigateToDetail(pdfId);
+            
+            card.querySelector('.view-btn').addEventListener('click', navigateToDetailHandler);
+            card.querySelector('img').addEventListener('click', navigateToDetailHandler);
         }
 
 
@@ -247,10 +201,10 @@
                 <nav class="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
                     <button id="back-to-list-btn" class="flex items-center text-lg font-semibold text-white hover:text-primary-color transition duration-200">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                        Back to List
+                        Back to Cover
                     </button>
                     <h2 class="text-2xl sm:text-3xl font-bold text-center mx-4" style="color: var(--primary-color);">
-                        ${pdf.name}
+                        ${pdf.name} - Thumbnail Gallery
                     </h2>
                     <div class="w-32"></div> <!-- Spacer for alignment -->
                 </nav>
@@ -296,7 +250,7 @@
         // --- Navigation Logic ---
 
         /**
-         * Switches the view to the PDF list.
+         * Switches the view to the PDF list (Cover Preview).
          */
         function navigateToList() {
             currentView = 'list';
