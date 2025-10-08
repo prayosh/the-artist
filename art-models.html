@@ -3,14 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Art Models PDF Viewer</title>
+    <title>Art Models PDF Thumbnail Gallery</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Use Inter font -->
+    <!-- Load pdf.js library for rendering PDFs to canvas/images -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    
+    <!-- Use Inter font and custom styles for modal and body -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         body {
             font-family: 'Inter', sans-serif;
+        }
+        /* Custom styling for the modal to ensure proper hiding/showing */
+        #modal {
+            opacity: 0;
+            pointer-events: none;
+            visibility: hidden;
+        }
+        #modal.active {
+            opacity: 1;
+            pointer-events: auto;
+            visibility: visible;
         }
     </style>
 </head>
@@ -19,31 +33,218 @@
     <!-- Header -->
     <header class="w-full max-w-7xl mb-6">
         <h1 class="text-3xl sm:text-4xl font-extrabold text-white text-center">
-            <span class="text-indigo-400">Art Models</span> Document Viewer
+            <span class="text-indigo-400">Art Models</span> Thumbnail Gallery
         </h1>
-        <p class="text-gray-400 text-center mt-2">Displaying content from: <code class="bg-gray-800 text-sm p-1 rounded">pdf/art-models/Art_Models_1.pdf</code></p>
+        <p class="text-gray-400 text-center mt-2">
+            Loading pages from: <code id="pdf-path-display" class="bg-gray-800 text-sm p-1 rounded">pdf/art-models/Art_Models_1.pdf</code>
+        </p>
     </header>
 
-    <!-- PDF Embed Container -->
-    <main class="w-full max-w-7xl flex-grow bg-gray-800 rounded-xl shadow-2xl overflow-hidden p-1">
-        <!-- The iframe is used to embed the PDF viewer provided by the browser -->
-        <iframe
-            src="pdf/art-models/Art_Models_1.pdf"
-            title="Art Models 1 PDF Document"
-            class="w-full h-full border-4 border-gray-700 rounded-lg"
-        >
-            <!-- Fallback content if the browser doesn't support iframes or PDF viewing -->
-            <p class="text-white p-4 text-center">
-                Your browser does not support embedded PDF files. 
-                You can <a href="pdf/art-models/Art_Models_1.pdf" class="text-indigo-400 hover:text-indigo-300 font-medium" download>click here to download the PDF</a>.
-            </p>
-        </iframe>
+    <!-- Main Content: Thumbnails Grid -->
+    <main class="w-full max-w-7xl flex-grow bg-gray-800 rounded-xl shadow-2xl p-4">
+        <div id="loading-message" class="text-white text-center text-xl p-8 rounded-lg bg-gray-700">
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Fetching PDF file...
+        </div>
+        
+        <!-- Thumbnail Container: 2-column grid -->
+        <div id="thumbnail-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 hidden">
+            <!-- Thumbnails will be injected here by JavaScript -->
+        </div>
+
+        <div id="error-message" class="hidden text-red-400 text-center p-8 bg-red-900 rounded-lg mt-4">
+            <p class="font-bold mb-2">Error Loading PDF</p>
+            <p id="detailed-error"></p>
+            <p class="mt-4">Please ensure the file path is correct and the PDF is accessible.</p>
+        </div>
     </main>
 
-    <!-- Footer for spacing -->
-    <footer class="mt-4 text-gray-600 text-sm">
-        <p>Ensure the file path is correct on your server for the PDF to load.</p>
-    </footer>
+    <!-- Full-screen Modal for Large Preview (Hidden by default) -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-90 flex justify-center items-center z-50 transition-opacity duration-300">
+        <div class="relative w-full h-full flex flex-col justify-center items-center p-4">
+            <!-- Close Button -->
+            <button id="close-modal" class="absolute top-4 right-4 text-white text-4xl font-bold p-2 rounded-full bg-gray-700 hover:bg-gray-500 transition duration-200 shadow-lg z-50">
+                &times;
+            </button>
+            <!-- Large Image Preview (will be centered and screen width) -->
+            <img id="large-preview-image" src="" alt="Full page preview" class="w-full max-w-screen-xl max-h-full object-contain cursor-pointer rounded-lg shadow-xl" onclick="document.getElementById('modal').classList.remove('active');">
+            <p id="modal-page-label" class="mt-4 text-white text-lg font-semibold"></p>
+        </div>
+    </div>
 
+    <!-- JavaScript for PDF Rendering and Interaction -->
+    <script>
+        const pdfPath = 'pdf/art-models/Art_Models_1.pdf';
+        const thumbnailGrid = document.getElementById('thumbnail-grid');
+        const loadingMessage = document.getElementById('loading-message');
+        const errorMessage = document.getElementById('error-message');
+        const detailedError = document.getElementById('detailed-error');
+        const modal = document.getElementById('modal');
+        const largePreviewImage = document.getElementById('large-preview-image');
+        const closeModalButton = document.getElementById('close-modal');
+        const modalPageLabel = document.getElementById('modal-page-label');
+
+        // Set the worker source URL, crucial for PDF.js to function
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+        /**
+         * Helper function to handle async fetching with exponential backoff and retries.
+         */
+        async function fetchWithRetry(url, attempts = 3) {
+            for (let i = 0; i < attempts; i++) {
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        // Throw specific error for network failures (404, 500, etc.)
+                        throw new Error(`HTTP error! status: ${response.status} (${response.statusText})`);
+                    }
+                    return response;
+                } catch (error) {
+                    // console.warn is used for exponential backoff retries, not errors
+                    if (i === attempts - 1) throw error;
+                    // Exponential backoff: wait 1s, 2s, 4s
+                    await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                }
+            }
+        }
+        
+        /**
+         * Function to render a single PDF page to a canvas and return the image data URL.
+         */
+        async function renderPage(pdf, pageNumber, scale) {
+            const page = await pdf.getPage(pageNumber);
+            const viewport = page.getViewport({ scale: scale });
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            const renderContext = {
+                canvasContext: context,
+                viewport: viewport
+            };
+
+            await page.render(renderContext).promise;
+            return canvas.toDataURL('image/jpeg', 0.8); // Use JPEG for smaller file size
+        }
+
+        /**
+         * Main function to load PDF data and render all thumbnails.
+         */
+        async function loadPDFAndRenderThumbnails() {
+            try {
+                loadingMessage.innerHTML = 'Fetching PDF file...';
+                
+                // 1. Fetch the PDF file data as ArrayBuffer using the robust fetcher
+                const response = await fetchWithRetry(pdfPath);
+                const arrayBuffer = await response.arrayBuffer();
+
+                loadingMessage.innerHTML = 'PDF fetched. Rendering pages...';
+                
+                // 2. Load PDF document from ArrayBuffer data (more reliable than URL)
+                const pdfData = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const numPages = pdfData.numPages;
+
+                loadingMessage.innerHTML = `Rendering ${numPages} pages...`;
+                thumbnailGrid.classList.remove('hidden');
+
+                // 3. Iterate through all pages
+                for (let i = 1; i <= numPages; i++) {
+                    // Create container for thumbnail
+                    const thumbnailWrapper = document.createElement('div');
+                    thumbnailWrapper.className = 'rounded-xl overflow-hidden shadow-lg border-4 border-gray-700 transition-transform duration-200 hover:scale-[1.03] cursor-pointer relative group bg-gray-900';
+                    
+                    // Add loading placeholder text
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'w-full h-48 sm:h-64 flex items-center justify-center text-gray-500 text-sm p-4';
+                    placeholder.textContent = `Page ${i} loading...`;
+                    thumbnailWrapper.appendChild(placeholder);
+
+                    thumbnailGrid.appendChild(thumbnailWrapper);
+
+                    // 4. Render the page as a small thumbnail (scale 0.5) and large preview (scale 1.5)
+                    const [thumbnailUrl, largePreviewUrl] = await Promise.all([
+                        renderPage(pdfData, i, 0.5),
+                        renderPage(pdfData, i, 1.5)
+                    ]);
+
+                    // 5. Replace placeholder with image element
+                    const img = document.createElement('img');
+                    img.src = thumbnailUrl;
+                    img.alt = `Thumbnail of page ${i}`;
+                    img.className = 'w-full h-auto block transform transition-opacity duration-300 opacity-0';
+                    img.setAttribute('data-full-src', largePreviewUrl);
+                    img.setAttribute('data-page', i);
+                    
+                    // On image load, fade it in and set click handler
+                    img.onload = () => {
+                        img.classList.remove('opacity-0');
+                        // Safely remove placeholder if it still exists
+                        if (thumbnailWrapper.contains(placeholder)) {
+                             thumbnailWrapper.removeChild(placeholder);
+                        }
+                        thumbnailWrapper.appendChild(img);
+                    };
+                    
+                    // Fallback in case onload doesn't fire immediately (e.g. cached data URL)
+                    if (img.complete && thumbnailUrl.startsWith('data:')) {
+                         img.classList.remove('opacity-0');
+                         if (thumbnailWrapper.contains(placeholder)) {
+                             thumbnailWrapper.removeChild(placeholder);
+                         }
+                         thumbnailWrapper.appendChild(img);
+                    }
+
+
+                    // Click handler to open modal
+                    thumbnailWrapper.onclick = () => {
+                        largePreviewImage.src = largePreviewUrl;
+                        modalPageLabel.textContent = `Page ${i} of ${numPages}`;
+                        modal.classList.add('active');
+                        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+                    };
+
+                    // Add page number overlay
+                    const pageLabel = document.createElement('div');
+                    pageLabel.className = 'absolute bottom-0 right-0 m-2 px-2 py-1 bg-indigo-600 text-white text-xs font-bold rounded-full opacity-90 transition-opacity duration-300 group-hover:opacity-100';
+                    pageLabel.textContent = `P. ${i}`;
+                    thumbnailWrapper.appendChild(pageLabel);
+                }
+
+            } catch (error) {
+                // Display the specific error message, which should now indicate a network issue (like a 404)
+                console.error('Error loading or rendering PDF:', error);
+                detailedError.textContent = error.message.includes("HTTP error! status") 
+                    ? `Network error: ${error.message}. Check that the path "${pdfPath}" is correct.`
+                    : `Processing error: ${error.message}`;
+                errorMessage.classList.remove('hidden');
+
+            } finally {
+                loadingMessage.classList.add('hidden');
+            }
+        }
+
+        // Modal Close Handlers
+        closeModalButton.onclick = () => {
+            modal.classList.remove('active');
+            document.body.style.overflow = ''; // Restore background scrolling
+        };
+        
+        // Close modal when clicking outside the image
+        modal.onclick = (e) => {
+            // Check if the click target is the modal itself (not the image or button)
+            if (e.target === modal) {
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        };
+
+        // Start the process when the window loads
+        window.onload = loadPDFAndRenderThumbnails;
+
+    </script>
 </body>
 </html>
