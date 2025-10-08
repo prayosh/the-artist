@@ -9,13 +9,18 @@
     <!-- Load pdf.js library for rendering PDFs to canvas/images -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     
-    <!-- Use Inter font and custom styles for modal and body -->
+    <!-- Use Inter font and custom styles for modal, menu, and body -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         body {
             font-family: 'Inter', sans-serif;
         }
-        /* Custom styling for the modal to ensure proper hiding/showing */
+        /* Custom styling for the PDF List view to force 2 columns on small screens */
+        #pdf-list-two-col {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        /* Modal styling */
         #modal {
             opacity: 0;
             pointer-events: none;
@@ -26,30 +31,88 @@
             pointer-events: auto;
             visibility: visible;
         }
+        
+        /* Menu (Drawer) styling: Slides in from the left */
+        #side-menu {
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+        }
+        #side-menu.active {
+            transform: translateX(0);
+        }
+
+        /* Overlay for when menu is open */
+        #menu-overlay {
+            opacity: 0;
+            pointer-events: none;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out;
+        }
+        #side-menu.active ~ #menu-overlay {
+            opacity: 1;
+            pointer-events: auto;
+            visibility: visible;
+        }
+
         /* Style for buttons/links */
         .pdf-link {
             transition: all 0.2s ease-in-out;
             cursor: pointer;
+            word-break: break-all; /* Ensures long file names wrap */
         }
         .pdf-link:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 15px -3px rgba(129, 140, 248, 0.5), 0 4px 6px -2px rgba(129, 140, 248, 0.2);
         }
+        
+        /* Utility for menu button shadow */
+        .menu-button-shadow {
+            box-shadow: 0 15px 25px -5px rgba(129, 140, 248, 0.7);
+        }
     </style>
 </head>
-<body class="bg-gray-900 min-h-screen p-4 sm:p-8 flex flex-col items-center">
+<body class="bg-gray-900 min-h-screen p-4 sm:p-8 flex flex-col items-center overflow-x-hidden">
 
-    <!-- The "Back to List" button is now FIXED to the bottom left corner -->
+    <!-- --- Floating UI Elements --- -->
+    
+    <!-- 1. Back to List Button (Bottom Left) -->
     <button id="back-button" class="hidden fixed bottom-4 left-4 sm:bottom-8 sm:left-8 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200 shadow-2xl z-50" onclick="window.location.search = '';">
         &larr; Back to List
     </button>
+
+    <!-- 2. Menu Button (Bottom Right) -->
+    <button id="menu-toggle-button" class="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 bg-indigo-600 text-white p-3 rounded-full font-semibold hover:bg-indigo-700 transition duration-200 menu-button-shadow z-50">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
+    </button>
+    
+    <!-- 3. Side Menu (Drawer - Opens from Left) -->
+    <div id="side-menu" class="fixed top-0 left-0 h-full w-64 bg-gray-800 shadow-2xl z-50 p-4 flex flex-col">
+        <h3 class="text-xl font-bold text-white mb-6 border-b border-gray-700 pb-2">Navigation</h3>
+        
+        <!-- Go To Home Link -->
+        <a href="https://prayosh.github.io/the-artist/home.html" target="_blank" 
+           class="w-full text-center bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200 shadow-md">
+            Go To Home
+        </a>
+        
+        <!-- Close Button (Optional, can just use overlay click) -->
+        <button id="menu-close-button" class="mt-4 text-gray-400 hover:text-white transition duration-200 text-sm">
+            Close Menu
+        </button>
+    </div>
+
+    <!-- 4. Menu Overlay (Clickable to close menu) -->
+    <div id="menu-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40"></div>
+
+    <!-- --- Main Content Structure --- -->
 
     <!-- Header (Always visible) -->
     <header class="w-full max-w-7xl mb-6">
         <h1 class="text-3xl sm:text-4xl font-extrabold text-white text-center">
             <span class="text-indigo-400">PDF Gallery</span> Navigator
         </h1>
-        <!-- Removed button from here -->
         <p id="current-pdf-display" class="text-gray-400 text-center mt-2"></p>
     </header>
 
@@ -73,7 +136,8 @@
                 <p>Ensure that a file named <code class="bg-yellow-800 text-sm p-1 rounded">pdf/art-models/manifest.json</code> exists and is correctly structured.</p>
             </div>
 
-            <div id="pdf-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 hidden">
+            <!-- Changed class to enforce 2 columns -->
+            <div id="pdf-list" class="grid grid-cols-2 gap-6 hidden"> 
                 <!-- PDF list buttons will be injected here -->
             </div>
         </div>
@@ -136,6 +200,11 @@
         const pageTitle = document.getElementById('page-title');
         const manifestLoading = document.getElementById('manifest-loading');
         const noPdfsMessage = document.getElementById('no-pdfs-message');
+        // New Menu Elements
+        const sideMenu = document.getElementById('side-menu');
+        const menuToggleButton = document.getElementById('menu-toggle-button');
+        const menuCloseButton = document.getElementById('menu-close-button');
+        const menuOverlay = document.getElementById('menu-overlay');
 
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
@@ -213,6 +282,13 @@
             return canvas.toDataURL('image/jpeg', 0.8);
         }
 
+        // --- Menu Logic ---
+        function toggleMenu() {
+            sideMenu.classList.toggle('active');
+            // Prevent body scrolling when menu is open
+            document.body.style.overflow = sideMenu.classList.contains('active') ? 'hidden' : 'auto';
+        }
+
         // --- View Handlers ---
 
         /**
@@ -222,6 +298,7 @@
             homeContainer.classList.remove('hidden');
             viewerContainer.classList.add('hidden');
             backButton.classList.add('hidden');
+            menuToggleButton.classList.remove('hidden');
             pageTitle.textContent = "PDF Selector";
             currentPdfDisplay.textContent = 'Fetching available PDF documents...';
 
@@ -241,13 +318,11 @@
                     const link = document.createElement('a');
                     // Set the URL search parameter for routing
                     link.href = `?file=${encodeURIComponent(fileName)}`; 
-                    link.className = 'pdf-link flex flex-col items-center p-4 bg-indigo-600 rounded-xl shadow-lg text-white font-semibold text-center border-b-4 border-indigo-700';
-                    link.innerHTML = `
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 mb-2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m5.25 9L15 12.75l1.875 1.875M16.875 14.625v-4.5h2.25c.828 0 1.5.672 1.5 1.5v2.25c0 .828-.672 1.5-1.5 1.5h-2.25Z" />
-                        </svg>
-                        <span>${fileName}</span>
-                    `;
+                    link.className = 'pdf-link flex flex-col items-center justify-center p-6 h-32 bg-indigo-600 rounded-xl shadow-lg text-white font-semibold text-center border-b-4 border-indigo-700';
+                    
+                    // Removed the SVG icon as requested
+                    link.innerHTML = `<span>${fileName}</span>`;
+
                     pdfListContainer.appendChild(link);
                 });
             } else {
@@ -262,6 +337,7 @@
             homeContainer.classList.add('hidden');
             viewerContainer.classList.remove('hidden');
             backButton.classList.remove('hidden');
+            menuToggleButton.classList.add('hidden'); // Hide menu button in viewer for cleaner look
             pageTitle.textContent = fileName;
             currentPdfDisplay.innerHTML = `Loading pages from: <code class="bg-gray-800 text-sm p-1 rounded">${pdfPath}</code>`;
             
@@ -354,7 +430,12 @@
         // --- Initial Routing & Execution ---
         
         window.onload = function() {
-            // Modal Close Handlers (only attach once)
+            // --- Menu Event Listeners ---
+            menuToggleButton.addEventListener('click', toggleMenu);
+            menuCloseButton.addEventListener('click', toggleMenu);
+            menuOverlay.addEventListener('click', toggleMenu);
+
+            // --- Modal Close Handlers ---
             closeModalButton.onclick = () => {
                 modal.classList.remove('active');
                 document.body.style.overflow = '';
@@ -366,7 +447,7 @@
                 }
             };
             
-            // Check for file parameter to determine view
+            // --- Routing ---
             const requestedFileName = getUrlParameter('file');
 
             if (requestedFileName) {
