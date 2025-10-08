@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Artist Homepage</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter (for body) and Tangerine (for heading) Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;600;800&family=Tangerine:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117; /* Very Dark Background */
+            color: #ffffff;
+            min-height: 100vh;
+        }
+        /* Custom background gradient for an artistic feel */
+        .artistic-bg {
+            background: linear-gradient(135deg, #0d1117 0%, #171c26 100%);
+        }
+        /* Custom styles for the heading to make it stand out */
+        .main-heading {
+            font-family: 'Tangerine', cursive; /* Tangerine script font */
+            /* Using responsive CSS for a better script font appearance */
+            font-size: 6rem; /* Default size for mobile */
+            font-weight: 700;
+            line-height: 1.2;
+            text-transform: none; 
+            text-shadow: 0 0 20px rgba(99, 102, 241, 0.7); /* Soft glowing effect */
+            transition: color 0.3s;
+        }
+        @media (min-width: 768px) { /* md breakpoint and up */
+            .main-heading {
+                font-size: 10rem; /* Larger size for desktop */
+            }
+        }
+        .main-heading:hover {
+            color: #c7d2fe; /* Slight hover to enhance focus */
+        }
+        
+        /* --- PULSATING SCALE ANIMATION --- */
+        @keyframes pulse-scale {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); } /* Scales up slightly */
+            100% { transform: scale(1); }
+        }
+
+        /* Button common styles */
+        .nav-button {
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            /* Default shadow */
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); 
+            /* Apply the new scale animation */
+            animation: pulse-scale 2s infinite alternate; 
+        }
+
+        /* Hover effect for lift and glow */
+        .nav-button:hover {
+            transform: translateY(-2px) scale(1.01); /* Lift and slightly scale up on hover */
+            /* Stronger hover shadow for a defined glow look on hover */
+            box-shadow: 0 0 30px rgba(99, 102, 241, 1), 0 0 60px rgba(99, 102, 241, 0.8);
+            border-color: #c7d2fe;
+            animation: none; /* IMPORTANT: Stop the pulsing scale animation on hover */
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center artistic-bg p-4">
+
+    <!-- Main Content Container -->
+    <div class="w-full max-w-2xl text-center p-8 md:p-12 rounded-xl border border-gray-700 bg-gray-900/50 backdrop-blur-sm">
+        
+        <!-- Heading -->
+        <h1 class="main-heading mb-12 text-indigo-400">
+            The Artist
+        </h1>
+
+        <!-- Button Links Container -->
+        <div class="flex flex-col space-y-6">
+            
+            <!-- Button 1: Image Reference Gallery -->
+            <a href="https://prayosh.github.io/the-artist/image-reference-gallery.html" 
+               class="nav-button bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-4 px-6 rounded-lg text-lg md:text-xl block w-full focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50">
+                Image Reference Gallery
+            </a>
+
+            <!-- Button 2: Figurative -->
+            <a href="https://prayosh.github.io/the-artist/figurative.html" 
+               class="nav-button bg-purple-600 hover:bg-purple-500 text-white font-semibold py-4 px-6 rounded-lg text-lg md:text-xl block w-full focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50">
+                Figurative
+            </a>
+            
+        </div>
+        
+    </div>
+
+</body>
+</html>
