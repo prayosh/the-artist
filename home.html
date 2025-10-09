@@ -185,18 +185,29 @@
             const passwordForm = document.getElementById('password-form');
             const passwordInput = document.getElementById('password-input');
             
-            // Define the valid passwords from the pass.json file for runtime check.
+            // Hardcoded valid passwords (removed dependency on pass.json)
             const VALID_PASSWORDS = ["password", "010101", "user"];
             const TARGET_URL = "https://prayosh.github.io/the-artist/home1.html";
 
-            // Function to show the modal
+            // Function to show the modal when 'A' is clicked
             secretKey.addEventListener('click', () => {
                 passwordModal.classList.remove('hidden');
                 passwordInput.focus();
             });
 
-            // Handle modal close (optional: close on backdrop click, but keeping simple per request)
-            
+            // Handle modal close on outside click (click on the backdrop)
+            passwordModal.addEventListener('click', (event) => {
+                // If the click target is exactly the modal backdrop itself (not a child element)
+                if (event.target === passwordModal) {
+                    passwordModal.classList.add('hidden');
+                    passwordInput.value = ''; // Clear input on close
+                    
+                    // Reset placeholder/error state
+                    passwordInput.placeholder = 'Enter password';
+                    passwordInput.classList.remove('border-red-500', 'text-red-400');
+                }
+            });
+
             // Handle form submission
             passwordForm.addEventListener('submit', (event) => {
                 event.preventDefault(); // Prevent default form submission
@@ -208,10 +219,11 @@
                     // Password is correct, redirect the user
                     window.location.href = TARGET_URL;
                 } else {
-                    // Password is incorrect, clear input and provide visual feedback
+                    // Password is incorrect
                     passwordInput.value = '';
                     passwordInput.placeholder = 'Incorrect! Try again.';
                     passwordInput.classList.add('border-red-500', 'text-red-400');
+                    // Reset visual feedback after a short delay
                     setTimeout(() => {
                         passwordInput.classList.remove('border-red-500', 'text-red-400');
                         passwordInput.placeholder = 'Enter password';
@@ -219,7 +231,7 @@
                 }
             });
             
-            // Optional: Allow pressing ESC to close the modal (better UX)
+            // Optional: Allow pressing ESC to close the modal (good accessibility)
             document.addEventListener('keydown', (event) => {
                 if (event.key === "Escape" && !passwordModal.classList.contains('hidden')) {
                     passwordModal.classList.add('hidden');
